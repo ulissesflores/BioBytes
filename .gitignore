@@ -1,0 +1,4 @@
+# Ignore Python compiled byte files and cache folders
+# Ignorar arquivos e pastas de byte compilados pelo Python
+__pycache__/
+*.pyc
