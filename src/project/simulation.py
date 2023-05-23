@@ -44,44 +44,179 @@ from matplotlib import animation
 class Organism:
     def __init__(self, position):
         self.position = position
+
     def move(self, world_size):
-        dx, dy = random.choice([(0, 1), (0, -1), (1, 0), (-1, 0)])
+        """
+        Move the organism to an adjacent cell within the world, avoiding collisions.
+
+        The organism randomly selects a direction (up, down, left, or right) and attempts to move to the adjacent cell.
+        However, it anticipates its trajectory for the next 10 blocks to avoid collisions with the map boundaries or other organisms.
+        If a collision is detected, the organism adjusts its route to avoid the collision, choosing the next available cell in the desired direction.
+
+        Args:
+            world_size (tuple): The size of the world as a tuple (width, height).
+
+        Returns:
+            None
+        """
+        dx, dy = self._choose_direction()
         x, y = self.position
-        x = (x + dx) % world_size[0]
-        y = (y + dy) % world_size[1]
-        self.position = (x, y)
+        new_x = x + dx
+        new_y = y + dy
+
+        # Check if the next position is within the boundaries of the world
+        new_x = max(0, min(new_x, world_size[0] - 1))
+        new_y = max(0, min(new_y, world_size[1] - 1))
+
+        # Check if the next position collides with other organisms
+        for organism in organisms:
+            if (new_x, new_y) == organism.position:
+                # Collision with another organism detected
+                self._adjust_route(world_size, organisms)
+                return
+
+        self.position = (new_x, new_y)
+
+
+    def _choose_direction(self):
+        """
+        Choose a random direction.
+
+        Returns:
+            tuple: The chosen direction as a tuple (dx, dy).
+        """
+        return random.choice([(0, 1), (0, -1), (1, 0), (-1, 0)])
+
+    def _simulate_trajectory(self, world_size, steps=10):
+        """
+        Simulate the organism's trajectory for the next steps.
+
+        Args:
+            world_size (tuple): The size of the world as a tuple (width, height).
+            steps (int): The number of steps to simulate.
+
+        Returns:
+            list: The list of simulated positions.
+        """
+        positions = [self.position]
+        x, y = self.position
+
+        for _ in range(steps):
+            dx, dy = self._choose_direction()
+            x += dx
+            y += dy
+
+            # Check if the simulated position is within the boundaries of the world
+            x = max(0, min(x, world_size[0] - 1))
+            y = max(0, min(y, world_size[1] - 1))
+
+            positions.append((x, y))
+
+        return positions
+
+    def check_collision(self, world_size, organisms):
+        """
+        Check for collisions with the map boundaries or other organisms.
+
+        The organism simulates its trajectory for the next 10 steps and checks if there are any collisions with the map boundaries or other organisms.
+        If a collision is detected, the organism adjusts its route to avoid the collision, choosing the next available cell in the desired direction.
+
+        Args:
+            world_size (tuple): The size of the world as a tuple (width, height).
+            organisms (list): List of other organisms in the world.
+
+        Returns:
+            None
+        """
+        trajectory = self._simulate_trajectory(world_size)
+
+        for position in trajectory[1:]:
+            if position[0] == 0 or position[0] == world_size[0] - 1 or position[1] == 0 or position[1] == world_size[1] - 1:
+                # Collision with the map boundary detected
+                self._adjust_route(world_size, organisms)
+                break
+
+            for organism in organisms:
+                if position == organism.position:
+                    # Collision with another organism detected
+                    self._adjust_route(world_size, organisms)
+                    break
+
+    def _adjust_route(self, world_size, organisms):
+        """
+        Adjust the organism's route to avoid collisions.
+
+        The organism tries all possible directions until it finds a cell that doesn't lead to a collision.
+
+        Args:
+            world_size (tuple): The size of the world as a tuple (width, height).
+            organisms (list): List of other organisms in the world.
+
+        Returns:
+            None
+        """
+        directions = [(0, 1), (0, -1), (1, 0), (-1, 0)]  # up, down, right, left
+        random.shuffle(directions)  # to choose a random direction
+
+        x, y = self.position
+
+        for dx, dy in directions:
+            new_x = x + dx
+            new_y = y + dy
+
+            # Check if the next position is within the boundaries of the world
+            new_x = max(0, min(new_x, world_size[0] - 1))
+            new_y = max(0, min(new_y, world_size[1] - 1))
+
+            # Check if the next position collides with other organisms
+            if not any(o.position == (new_x, new_y) for o in organisms):
+                self.position = (new_x, new_y)
+                break  # No collision with other organisms
+
+
 
 class Nutrient:
     def __init__(self, position):
         self.position = position
 
+
 class World:
     def __init__(self, size):
         self.size = size
-        self.matrix = np.zeros(self.size, dtype=np.uint8)
+        self.matrix = np.zeros((self.size[0] + 2, self.size[1] + 2), dtype=np.uint8)
+
+        
         self.organisms = []
 
     def place_organisms(self, organisms):
         self.organisms.extend(organisms)
         for organism in organisms:
             x, y = organism.position
-            self.matrix[x, y] = 1
+            self.matrix[x + 1, y + 1] = 1
 
     def place_nutrients(self, nutrients):
         for nutrient in nutrients:
             x, y = nutrient.position
-            self.matrix[x, y] = 2
+            self.matrix[x + 1, y + 1] = 2
 
     def move_organisms(self):
         for organism in self.organisms:
             old_position = organism.position
-            organism.move(self.size)
+            organism.check_collision(self.size, self.organisms)
             new_position = organism.position
-            self.matrix[old_position] = 0  # clear old position
-            self.matrix[new_position] = 1  # place organism at new position
+
+            new_x = min(new_position[0], self.size[0])  # limit the maximum x-coordinate
+            new_y = min(new_position[1], self.size[1])  # limit the maximum y-coordinate
+
+            self.matrix[old_position[0] + 1, old_position[1] + 1] = 0  # clear old position
+            self.matrix[new_x + 1, new_y + 1] = 1  # place organism at new position
+
+
+
+
 
 # Define the size of the world
-world_size = (100, 100)
+world_size = (110, 110)
 
 # Create the world
 world = World(world_size)
@@ -90,7 +225,7 @@ world = World(world_size)
 num_organisms = int(world_size[0] * world_size[1] * 0.02)  # 2% of world size
 organisms = []
 for _ in range(num_organisms):
-    position = random.randint(0, world_size[0] - 1), random.randint(0, world_size[1] - 1)
+    position = random.randint(0, world_size[0] - 2), random.randint(0, world_size[1] - 2)
     organism = Organism(position)
     organisms.append(organism)
 world.place_organisms(organisms)
@@ -99,7 +234,7 @@ world.place_organisms(organisms)
 num_nutrients = int(world_size[0] * world_size[1] * 0.01)  # 1% of world size
 nutrients = []
 for _ in range(num_nutrients):
-    position = random.randint(0, world_size[0] - 1), random.randint(0, world_size[1] - 1)
+    position = random.randint(0, world_size[0] - 2), random.randint(0, world_size[1] - 2)
     nutrient = Nutrient(position)
     nutrients.append(nutrient)
 world.place_nutrients(nutrients)
@@ -119,14 +254,13 @@ def update(frame):
     im.set_array(world.matrix)
 
 # Create the animation
-ani = animation.FuncAnimation(fig, update, frames=100, interval=200, blit=False)
+ani = animation.FuncAnimation(fig, update, frames=200, interval=200, blit=False)
 
 # Save the animation as a GIF
 OUTPUT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'examples'))
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 output_file = os.path.join(OUTPUT_DIR, "animation.gif")
 ani.save(output_file, writer='pillow')
-
 
 # Show the plot
 plt.show()
