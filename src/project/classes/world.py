@@ -1,46 +1,30 @@
 """
 This module contains the World class, which represents the world of the simulation.
 
-O módulo contém a classe World, que representa o mundo da simulação.
-
 The World class provides functionalities to manage and interact with the simulation's world.
-It allows placing organisms, clearing the world, and performing other relevant operations.
+It allows placing organisms, moving organisms, clearing the world, and generating nutrients.
 
-A classe World fornece funcionalidades para gerenciar e interagir com o mundo da simulação.
-Ela permite colocar organismos, limpar o mundo e executar outras operações relevantes.
-
-The world is represented by a matrix, where each element represents 
-a specific state or entity in the world.
-
-O mundo é representado por uma matriz, 
-onde cada elemento representa um estado ou entidade específica no mundo.
+The world is represented by a matrix, where each element represents a specific state 
+or entity in the world.
 
 Attributes:
     size (tuple): The size of the world as a tuple (width, height).
     matrix (ndarray): The matrix representing the world.
-
-Atributos:
-    size (tuple): O tamanho do mundo como uma tupla (largura, altura).
-    matrix (ndarray): A matriz que representa o mundo.
 
 Methods:
     __init__(size: tuple) -> None:
         Initializes a new World instance.
     place_organisms(organisms: list) -> None:
         Places organisms in the world.
+    move_organisms() -> None:
+        Move organisms in the world.
     clear() -> None:
         Clears the world.
-
-Métodos:
-    __init__(size: tuple) -> None:
-        Inicializa uma nova instância da classe World.
-    place_organisms(organisms: list) -> None:
-        Coloca organismos no mundo.
-    clear() -> None:
-        Limpa o mundo.
-
+    generate_nutrients() -> None:
+        Generates nutrients in the world.
 """
 
+import random
 import numpy as np
 
 
@@ -48,39 +32,64 @@ class World:
     """
     Represents the world of the simulation.
 
-    A classe World representa o mundo da simulação.
+    A class that manages the world of the simulation. 
+    It provides functionalities for placing organisms,
+    moving organisms, and clearing the world.
     """
 
     def __init__(self, size):
         """
         Initializes a new World instance.
 
-        Inicializa uma nova instância da classe World.
-
         Args:
             size (tuple): The size of the world as a tuple (width, height).
-                O tamanho do mundo como uma tupla (largura, altura).
         """
         self.size = size
         self.matrix = np.zeros(self.size)
+        self.organisms = []
 
     def place_organisms(self, organisms):
         """
         Places organisms in the world.
 
-        Coloca organismos no mundo.
-
         Args:
-            organisms (list): List of organism positions as tuples (x, y).
-                Lista de posições dos organismos como tuplas (x, y).
+            organisms (list): List of Organism objects.
         """
+        self.organisms.extend(organisms)
         for organism in organisms:
-            self.matrix[organism] = 1
+            x, y = organism.position
+            self.matrix[x, y] = 1
+
+    def move_organisms(self):
+        """
+        Move organisms in the world.
+
+        Randomly moves organisms to adjacent cells (up, right, down, or left).
+        Updates the position of each organism and the world matrix accordingly.
+        """
+        for organism in self.organisms:
+            x, y = organism.position
+            direction = random.randint(0, 3)
+
+            if direction == 0:  # Up
+                y -= 1
+            elif direction == 1:  # Right
+                x += 1
+            elif direction == 2:  # Down
+                y += 1
+            elif direction == 3:  # Left
+                x -= 1
+
+            if 0 <= x < self.size[0] and 0 <= y < self.size[1]:
+                organism.position = (x, y)
+                self.matrix[x, y] = 1
+            else:
+                self.organisms.remove(organism)
 
     def clear(self):
         """
         Clears the world.
 
-        Limpa o mundo.
+        Resets the world matrix to all zeros.
         """
         self.matrix = np.zeros(self.size)
